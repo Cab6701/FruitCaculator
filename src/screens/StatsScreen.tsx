@@ -6,10 +6,12 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getInvoices } from '../storage/invoiceStorage';
+import { clearAllInvoices, deleteInvoicesByDate, getInvoices } from '../storage/invoiceStorage';
 import { Invoice } from '../types/invoice';
 import { formatCurrencyVND, formatDateOnly } from '../utils/format';
 
@@ -60,20 +62,65 @@ export const StatsScreen: React.FC = () => {
     setRefreshing(false);
   }, []);
 
+  const handleDeleteDay = (date: string) => {
+    Alert.alert('Xoá ngày này', 'Bạn có chắc chắn muốn xoá tất cả hoá đơn của ngày này không?', [
+      { text: 'Huỷ', style: 'cancel' },
+      {
+        text: 'Xoá',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteInvoicesByDate(date);
+          const invoices = await getInvoices();
+          setStats(computeStats(invoices));
+        },
+      },
+    ]);
+  };
+
+  const handleClearAll = () => {
+    if (!stats.length) {
+      return;
+    }
+
+    Alert.alert('Xoá tất cả hoá đơn', 'Bạn có chắc chắn muốn xoá toàn bộ dữ liệu không?', [
+      { text: 'Huỷ', style: 'cancel' },
+      {
+        text: 'Xoá',
+        style: 'destructive',
+        onPress: async () => {
+          await clearAllInvoices();
+          setStats([]);
+        },
+      },
+    ]);
+  };
+
   const renderItem = ({ item }: { item: DayStat }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemRow}>
         <Text style={styles.dateText}>{formatDateOnly(item.date)}</Text>
         <Text style={styles.amountText}>{formatCurrencyVND(item.total)}</Text>
       </View>
-      <Text style={styles.countText}>{item.count} hoá đơn</Text>
+      <View style={styles.itemFooterRow}>
+        <Text style={styles.countText}>{item.count} hoá đơn</Text>
+        <TouchableOpacity onPress={() => handleDeleteDay(item.date)}>
+          <Text style={styles.deleteText}>Xoá</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Thống kê theo ngày</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Thống kê theo ngày</Text>
+          {stats.length > 0 && !loading && (
+            <TouchableOpacity onPress={handleClearAll}>
+              <Text style={styles.clearText}>Xoá tất cả</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" />
@@ -107,12 +154,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   title: {
     fontSize: 20,
     fontWeight: '700',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+  },
+  clearText: {
+    fontSize: 14,
+    color: '#ff4d4f',
+    fontWeight: '600',
   },
   listContent: {
     padding: 16,
@@ -133,6 +193,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
+  itemFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   dateText: {
     fontSize: 14,
     fontWeight: '600',
@@ -145,6 +210,11 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 12,
     color: '#666',
+  },
+  deleteText: {
+    fontSize: 13,
+    color: '#ff4d4f',
+    fontWeight: '600',
   },
   center: {
     flex: 1,

@@ -47,3 +47,14 @@ export const deleteInvoiceById = async (id: string): Promise<void> => {
   }
 };
 
+export const deleteInvoicesByDate = async (date: string): Promise<void> => {
+  try {
+    const existing = await getInvoices();
+    const updated = existing.filter((invoice) => invoice.createdAt.slice(0, 10) !== date);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.warn('Failed to delete invoices by date', error);
+    throw error;
+  }
+};
+

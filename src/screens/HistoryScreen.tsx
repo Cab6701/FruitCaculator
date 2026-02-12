@@ -6,9 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { getInvoices } from '../storage/invoiceStorage';
+import { clearAllInvoices, deleteInvoiceById, getInvoices } from '../storage/invoiceStorage';
 import { Invoice } from '../types/invoice';
 import { formatCurrencyVND, formatDateTime } from '../utils/format';
 
@@ -23,6 +24,42 @@ export const HistoryScreen: React.FC = () => {
     setInvoices(data);
     setLoading(false);
   }, []);
+
+  const handleDeleteInvoice = (id: string) => {
+    Alert.alert('Xoá hoá đơn', 'Bạn có chắc chắn muốn xoá hoá đơn này không?', [
+      { text: 'Huỷ', style: 'cancel' },
+      {
+        text: 'Xoá',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteInvoiceById(id);
+          setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+        },
+      },
+    ]);
+  };
+
+  const handleClearAll = () => {
+    if (!invoices.length) {
+      return;
+    }
+
+    Alert.alert(
+      'Xoá tất cả hoá đơn',
+      'Bạn có chắc chắn muốn xoá toàn bộ lịch sử hoá đơn không?',
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Xoá',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllInvoices();
+            setInvoices([]);
+          },
+        },
+      ],
+    );
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -39,7 +76,17 @@ export const HistoryScreen: React.FC = () => {
         <Text style={styles.itemTitle}>{formatDateTime(item.createdAt)}</Text>
         <Text style={styles.itemAmount}>{formatCurrencyVND(item.totalAmount)}</Text>
       </View>
-      <Text style={styles.itemSubtitle}>{item.items.length} mặt hàng</Text>
+      <View style={styles.itemFooterRow}>
+        <Text style={styles.itemSubtitle}>{item.items.length} mặt hàng</Text>
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeleteInvoice(item.id);
+          }}
+        >
+          <Text style={styles.deleteText}>Xoá</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -55,12 +102,20 @@ export const HistoryScreen: React.FC = () => {
           <Text style={styles.emptySubText}>Hãy tạo hoá đơn mới ở tab Hoá đơn.</Text>
         </View>
       ) : (
-        <FlatList
-          data={invoices}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={renderItem}
-        />
+        <>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Lịch sử hoá đơn</Text>
+            <TouchableOpacity onPress={handleClearAll}>
+              <Text style={styles.clearText}>Xoá tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={invoices}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={renderItem}
+          />
+        </>
       )}
     </View>
   );
@@ -70,6 +125,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  headerRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  clearText: {
+    fontSize: 14,
+    color: '#ff4d4f',
+    fontWeight: '600',
   },
   listContent: {
     padding: 16,
@@ -90,6 +162,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 4,
   },
+  itemFooterRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   itemTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -102,6 +180,11 @@ const styles = StyleSheet.create({
   itemSubtitle: {
     fontSize: 12,
     color: '#666',
+  },
+  deleteText: {
+    fontSize: 13,
+    color: '#ff4d4f',
+    fontWeight: '600',
   },
   center: {
     flex: 1,

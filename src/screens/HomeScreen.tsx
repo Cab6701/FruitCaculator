@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Modal, Alert } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInvoice } from '../hooks/useInvoice';
 import { InvoiceItemRow } from '../components/InvoiceItemRow';
 import { formatCurrencyVND } from '../utils/format';
 import { FruitPreset } from '../types/invoice';
 import { getFruitPresets } from '../storage/fruitPresetStorage';
+import type { InvoiceItem } from '../types/invoice';
 
 export const HomeScreen: React.FC = () => {
   const {
@@ -24,6 +26,7 @@ export const HomeScreen: React.FC = () => {
   const [presets, setPresets] = useState<FruitPreset[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null);
+  const listRef = useRef<FlatList<InvoiceItem> | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -50,60 +53,83 @@ export const HomeScreen: React.FC = () => {
     closePicker();
   };
 
+  const handleSaveWithValidation = () => {
+    const invalidIndex = items.findIndex((item) => !item.name || item.pricePerKg <= 0);
+
+    if (invalidIndex !== -1) {
+      Alert.alert(
+        'Thiếu thông tin',
+        'Vui lòng chọn loại quả và nhập giá/kg cho tất cả mặt hàng trước khi lưu hoá đơn.',
+      );
+
+      if (listRef.current) {
+        try {
+          listRef.current.scrollToIndex({
+            index: invalidIndex,
+            animated: true,
+            viewPosition: 0.5,
+          });
+        } catch {
+          listRef.current.scrollToEnd({ animated: true });
+        }
+      }
+      return;
+    }
+
+    saveCurrentInvoice();
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>Hoá đơn hoa quả</Text>
 
-        {presets.length > 0 && (
-          <View style={styles.presetsSection}>
-            <Text style={styles.presetsLabel}>Danh sách quả đã cài đặt</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.presetsRow}
-            >
-              {presets.map((preset) => (
-                <TouchableOpacity
-                  key={preset.id}
-                  style={styles.presetChip}
-                  onPress={() => addItemFromPreset(preset)}
-                >
-                  <Text style={styles.presetName}>{preset.name}</Text>
-                  <Text style={styles.presetPrice}>
-                    {formatCurrencyVND(preset.pricePerKg)}/kg
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        <View style={styles.content}>
+          <FlatList
+            ref={listRef}
+            data={items}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => (
+              <Swipeable
+                renderRightActions={() => (
+                  <TouchableOpacity
+                    style={styles.swipeDelete}
+                    onPress={() => removeItem(item.id)}
+                  >
+                    <Text style={styles.swipeDeleteText}>Xoá</Text>
+                  </TouchableOpacity>
+                )}
+              >
+                <InvoiceItemRow
+                  {...({
+                    item,
+                    hasPresets: presets.length > 0,
+                    onPressChooseFruit: openFruitPicker,
+                    onChangeName: (id: string, value: string) => updateItemField(id, 'name', value),
+                    onChangePricePerKg: (id: string, value: string) =>
+                      updateItemField(id, 'pricePerKg', value),
+                    onChangeWeightKg: (id: string, value: string) =>
+                      updateItemField(id, 'weightKg', value),
+                    onRemove: removeItem,
+                  } as any)}
+                />
+              </Swipeable>
+            )}
+          />
 
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <InvoiceItemRow
-              {...({
-                item,
-                hasPresets: presets.length > 0,
-                onPressChooseFruit: openFruitPicker,
-                onChangeName: (id: string, value: string) => updateItemField(id, 'name', value),
-                onChangePricePerKg: (id: string, value: string) =>
-                  updateItemField(id, 'pricePerKg', value),
-                onChangeWeightKg: (id: string, value: string) =>
-                  updateItemField(id, 'weightKg', value),
-                onRemove: removeItem,
-              } as any)}
-            />
-          )}
-          ListFooterComponent={
-            <TouchableOpacity style={styles.addRowButton} onPress={addItem}>
-              <Text style={styles.addRowText}>+ Thêm mặt hàng</Text>
-            </TouchableOpacity>
-          }
-        />
+          <TouchableOpacity
+            style={styles.addRowButton}
+            onPress={() => {
+              addItem();
+              if (listRef.current) {
+                setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 0);
+              }
+            }}
+          >
+            <Text style={styles.addRowText}>+ Thêm mặt hàng</Text>
+          </TouchableOpacity>
+        </View>
 
         <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={closePicker}>
           <View style={styles.modalOverlay}>
@@ -142,7 +168,7 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={saveCurrentInvoice}
+              onPress={handleSaveWithValidation}
               disabled={isSaving}
             >
               <Text style={styles.primaryButtonText}>
@@ -159,9 +185,12 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  content: {
     flex: 1,
   },
   title: {
@@ -203,18 +232,36 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 16,
   },
+  swipeDelete: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    marginVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#ff4d4f',
+  },
+  swipeDeleteText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   addRowButton: {
-    marginTop: 4,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#1890ff',
+    marginTop: 8,
+    marginHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#e6f4ff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   addRowText: {
     color: '#1890ff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 15,
   },
   footer: {
     paddingHorizontal: 16,

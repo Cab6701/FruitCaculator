@@ -66,13 +66,19 @@ export const useInvoice = () => {
           if (item.id !== id) return item;
 
           if (field === 'pricePerKg') {
-            const numeric = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+            const numeric =
+              typeof value === 'number'
+                ? value
+                : parseFloat(String(value).replace(',', '.')) || 0;
             // UI nhập đơn vị nghìn đồng => lưu thành đồng/kg
             return { ...item, pricePerKg: numeric * 1000 };
           }
 
           if (field === 'weightKg') {
-            const numeric = typeof value === 'number' ? value : parseFloat(String(value)) || 0;
+            const numeric =
+              typeof value === 'number'
+                ? value
+                : parseFloat(String(value).replace(',', '.')) || 0;
             return { ...item, weightKg: numeric };
           }
 

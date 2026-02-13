@@ -42,30 +42,21 @@ export const InvoiceItemRow: React.FC<Props> = ({
     <View style={styles.container}>
       <View style={styles.mainRow}>
         <View style={styles.leftColumn}>
-          {hasPresets && onPressChooseFruit ? (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={[styles.input, styles.nameInput, styles.dropdownInput]}
-              onPress={() => onPressChooseFruit(item.id)}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.input, styles.nameInput, styles.dropdownInput]}
+            onPress={() => onPressChooseFruit?.(item.id)}
+          >
+            <Text
+              style={[
+                styles.dropdownText,
+                !item.name && styles.placeholderText,
+              ]}
+              numberOfLines={1}
             >
-              <Text
-                style={[
-                  styles.dropdownText,
-                  !item.name && styles.placeholderText,
-                ]}
-                numberOfLines={1}
-              >
-                {item.name || "Chọn loại quả"}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="Loại quả"
-              value={item.name}
-              onChangeText={(text) => onChangeName(item.id, text)}
-            />
-          )}
+              {item.name || "Chọn loại quả"}
+            </Text>
+          </TouchableOpacity>
 
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Giá/kg</Text>

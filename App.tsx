@@ -1,16 +1,20 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { HistoryScreen, type HistoryStackParamList } from './src/screens/HistoryScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { InvoiceDetailScreen } from './src/screens/InvoiceDetailScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+
+SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
 const HistoryStack = createNativeStackNavigator<HistoryStackParamList>();
@@ -33,9 +37,32 @@ function HistoryStackNavigator() {
 }
 
 export default function App() {
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
+
+  useEffect(() => {
+    async function hideSplash() {
+      await SplashScreen.hideAsync();
+      setIsSplashVisible(false);
+    }
+    const t = setTimeout(hideSplash, 2000);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {isSplashVisible && (
+          <View style={StyleSheet.absoluteFill}>
+            <View style={styles.splashOverlay}>
+              <Image
+                source={require('./assets/splash-icon.png')}
+                style={styles.splashImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.splashCredit}>Phát triển bởi Trịnh Bắc</Text>
+            </View>
+          </View>
+        )}
         <NavigationContainer>
           <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -67,3 +94,22 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  splashOverlay: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashImage: {
+    width: 200,
+    height: 200,
+  },
+  splashCredit: {
+    position: 'absolute',
+    bottom: 48,
+    fontSize: 14,
+    color: '#666666',
+  },
+});

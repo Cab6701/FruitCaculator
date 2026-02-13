@@ -57,7 +57,14 @@ export const HomeScreen: React.FC = () => {
   );
 
   const openFruitPicker = (id: string) => {
-    if (!presets.length) return;
+    if (!presets.length) {
+      Alert.alert(
+        "Chưa có danh sách quả",
+        "Hãy cài đặt danh sách quả trong màn Cài đặt trước.",
+        [{ text: "Đóng", style: "cancel" }],
+      );
+      return;
+    }
     setPickerTargetId(id);
     setPickerVisible(true);
   };

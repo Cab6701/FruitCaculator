@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   FlatList,
   TouchableOpacity,
@@ -38,6 +39,7 @@ export const HomeScreen: React.FC = () => {
   const [presets, setPresets] = useState<FruitPreset[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   const listRef = useRef<FlatList<InvoiceItem> | null>(null);
 
   useFocusEffect(
@@ -95,6 +97,11 @@ export const HomeScreen: React.FC = () => {
     if (!pickerTargetId) return;
     const applied = applyPresetToItem(pickerTargetId, preset);
     if (!applied) {
+      Alert.alert(
+        "Đã có trong hoá đơn",
+        "Loại quả này đã có trong hoá đơn.",
+        [{ text: "OK" }],
+      );
       const index = items.findIndex((item) => item.presetId === preset.id);
       if (index !== -1 && listRef.current) {
         setTimeout(() => {
@@ -115,13 +122,16 @@ export const HomeScreen: React.FC = () => {
 
   const handleSaveWithValidation = () => {
     const invalidIndex = items.findIndex(
-      (item) => !item.name || item.pricePerKg <= 0,
+      (item) =>
+        !item.name ||
+        item.pricePerKg <= 0 ||
+        item.weightKg <= 0,
     );
 
     if (invalidIndex !== -1) {
       Alert.alert(
         "Thiếu thông tin",
-        "Vui lòng chọn loại quả và nhập giá/kg cho tất cả mặt hàng trước khi lưu hoá đơn.",
+        "Vui lòng chọn loại quả, nhập giá/kg và số kg cho tất cả mặt hàng trước khi lưu hoá đơn.",
       );
 
       if (listRef.current) {
@@ -140,7 +150,10 @@ export const HomeScreen: React.FC = () => {
 
     Alert.alert("Lưu hoá đơn", "Bạn có chắc chắn muốn lưu hoá đơn này không?", [
       { text: "Huỷ", style: "cancel" },
-      { text: "Lưu", onPress: () => saveCurrentInvoice() },
+      {
+        text: "Lưu",
+        onPress: () => saveCurrentInvoice(note, () => setNote("")),
+      },
     ]);
   };
 
@@ -175,18 +188,17 @@ export const HomeScreen: React.FC = () => {
                 )}
               >
                 <InvoiceItemRow
-                  {...({
-                    item,
-                    hasPresets: presets.length > 0,
-                    onPressChooseFruit: openFruitPicker,
-                    onChangeName: (id: string, value: string) =>
-                      updateItemField(id, "name", value),
-                    onChangePricePerKg: (id: string, value: string) =>
-                      updateItemField(id, "pricePerKg", value),
-                    onChangeWeightKg: (id: string, value: string) =>
-                      updateItemField(id, "weightKg", value),
-                    onRemove: handleRemoveItem,
-                  } as any)}
+                  item={item}
+                  hasPresets={presets.length > 0}
+                  onPressChooseFruit={openFruitPicker}
+                  onChangeName={(id, value) => updateItemField(id, "name", value)}
+                  onChangePricePerKg={(id, value) =>
+                    updateItemField(id, "pricePerKg", value)
+                  }
+                  onChangeWeightKg={(id, value) =>
+                    updateItemField(id, "weightKg", value)
+                  }
+                  onRemove={handleRemoveItem}
                 />
               </Swipeable>
             )}
@@ -242,6 +254,13 @@ export const HomeScreen: React.FC = () => {
         </Modal>
 
         <View style={styles.footer}>
+          <TextInput
+            style={styles.noteInput}
+            placeholder="Ghi chú (tuỳ chọn)"
+            placeholderTextColor="#999"
+            value={note}
+            onChangeText={setNote}
+          />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Tổng tiền:</Text>
             <Text style={styles.totalValue}>
@@ -412,6 +431,16 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: "#fff",
     fontWeight: "600",
+  },
+  noteInput: {
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: "#fff",
+    marginBottom: 10,
   },
   totalRow: {
     flexDirection: "row",

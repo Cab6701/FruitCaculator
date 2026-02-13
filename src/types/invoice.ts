@@ -14,6 +14,7 @@ export type Invoice = {
   createdAt: string; // ISO string
   items: InvoiceItem[];
   totalAmount: number;
+  /** Ghi chú tùy chọn cho hoá đơn */
   note?: string;
 };
 

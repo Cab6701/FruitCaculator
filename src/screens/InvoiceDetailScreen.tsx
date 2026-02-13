@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Invoice, InvoiceItem } from '../types/invoice';
 import { formatCurrencyVND, formatDateTime } from '../utils/format';
 
@@ -31,11 +32,15 @@ export const InvoiceDetailScreen: React.FC<Props> = ({ route }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.dateText}>{formatDateTime(invoice.createdAt)}</Text>
         <Text style={styles.totalText}>{formatCurrencyVND(invoice.totalAmount)}</Text>
         <Text style={styles.countText}>{invoice.items.length} mặt hàng</Text>
+        {invoice.note?.trim() ? (
+          <Text style={styles.noteText}>{invoice.note.trim()}</Text>
+        ) : null}
       </View>
 
       <FlatList
@@ -44,11 +49,15 @@ export const InvoiceDetailScreen: React.FC<Props> = ({ route }) => {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
       />
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -73,6 +82,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: '#666',
+  },
+  noteText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#555',
+    fontStyle: 'italic',
   },
   listContent: {
     padding: 16,

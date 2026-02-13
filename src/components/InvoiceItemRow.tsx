@@ -40,13 +40,6 @@ export const InvoiceItemRow: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => onRemove(item.id)}
-        style={styles.deleteButton}
-      >
-        <Text style={styles.deleteText}>X</Text>
-      </TouchableOpacity>
-
       <View style={styles.mainRow}>
         <View style={styles.leftColumn}>
           {hasPresets && onPressChooseFruit ? (
@@ -185,22 +178,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: "#999",
-  },
-  deleteButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "#ff4d4f",
-    opacity: 0,
-    pointerEvents: "none",
-  },
-  deleteText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 12,
   },
   weightLabel: {
     fontSize: 11,

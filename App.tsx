@@ -7,13 +7,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { HistoryScreen } from './src/screens/HistoryScreen';
+import { HistoryScreen, type HistoryStackParamList } from './src/screens/HistoryScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { InvoiceDetailScreen } from './src/screens/InvoiceDetailScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
-const HistoryStack = createNativeStackNavigator();
+const HistoryStack = createNativeStackNavigator<HistoryStackParamList>();
 
 function HistoryStackNavigator() {
   return (

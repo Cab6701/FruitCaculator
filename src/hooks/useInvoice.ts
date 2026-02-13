@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { FruitPreset, Invoice, InvoiceItem } from '../types/invoice';
 import { saveInvoice } from '../storage/invoiceStorage';
+import { generateId } from '../utils/id';
 
 const createEmptyItem = (partial?: Partial<InvoiceItem>): InvoiceItem => ({
-  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  id: generateId(),
   name: '',
   pricePerKg: 0,
   weightKg: 0,
@@ -78,8 +79,8 @@ export const useInvoice = () => {
               typeof value === 'number'
                 ? value
                 : parseFloat(String(value).replace(',', '.')) || 0;
-            // UI nhập đơn vị nghìn đồng => lưu thành đồng/kg
-            return { ...item, pricePerKg: numeric * 1000 };
+            // UI nhập đơn vị nghìn đồng => lưu thành đồng/kg; không cho âm
+            return { ...item, pricePerKg: Math.max(0, numeric * 1000) };
           }
 
           if (field === 'weightKg') {
@@ -87,7 +88,7 @@ export const useInvoice = () => {
               typeof value === 'number'
                 ? value
                 : parseFloat(String(value).replace(',', '.')) || 0;
-            return { ...item, weightKg: numeric };
+            return { ...item, weightKg: Math.max(0, numeric) };
           }
 
           return { ...item, [field]: value };
@@ -101,30 +102,35 @@ export const useInvoice = () => {
     setItems([createEmptyItem()]);
   }, []);
 
-  const saveCurrentInvoice = useCallback(async () => {
-    if (totalAmount <= 0 || items.every((i) => !i.name || i.pricePerKg <= 0 || i.weightKg <= 0)) {
-      Alert.alert('Hoá đơn không hợp lệ', 'Vui lòng nhập ít nhất một mặt hàng hợp lệ.');
-      return;
-    }
+  const saveCurrentInvoice = useCallback(
+    async (note?: string, onSuccess?: () => void) => {
+      if (totalAmount <= 0 || items.every((i) => !i.name || i.pricePerKg <= 0 || i.weightKg <= 0)) {
+        Alert.alert('Hoá đơn không hợp lệ', 'Vui lòng nhập ít nhất một mặt hàng hợp lệ.');
+        return;
+      }
 
-    setIsSaving(true);
-    try {
-      const invoice: Invoice = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        createdAt: new Date().toISOString(),
-        items,
-        totalAmount,
-      };
+      setIsSaving(true);
+      try {
+        const invoice: Invoice = {
+          id: generateId(),
+          createdAt: new Date().toISOString(),
+          items,
+          totalAmount,
+          ...(note?.trim() ? { note: note.trim() } : {}),
+        };
 
-      await saveInvoice(invoice);
-      Alert.alert('Đã lưu', 'Hoá đơn đã được lưu thành công.');
-      resetInvoice();
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể lưu hoá đơn. Vui lòng thử lại.');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [items, resetInvoice, totalAmount]);
+        await saveInvoice(invoice);
+        Alert.alert('Đã lưu', 'Hoá đơn đã được lưu thành công.');
+        resetInvoice();
+        onSuccess?.();
+      } catch (error) {
+        Alert.alert('Lỗi', 'Không thể lưu hoá đơn. Vui lòng thử lại.');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [items, resetInvoice, totalAmount],
+  );
 
   return {
     items,

@@ -8,15 +8,27 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { clearAllInvoices, deleteInvoiceById, getInvoices } from '../storage/invoiceStorage';
 import { Invoice } from '../types/invoice';
 import { formatCurrencyVND, formatDateTime } from '../utils/format';
 
+export type HistoryStackParamList = {
+  HistoryList: undefined;
+  InvoiceDetail: { invoice: Invoice };
+};
+
+type HistoryScreenNavigationProp = NativeStackNavigationProp<
+  HistoryStackParamList,
+  'HistoryList'
+>;
+
 export const HistoryScreen: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<HistoryScreenNavigationProp>();
 
   const loadInvoices = useCallback(async () => {
     setLoading(true);
@@ -91,7 +103,8 @@ export const HistoryScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
@@ -117,11 +130,15 @@ export const HistoryScreen: React.FC = () => {
           />
         </>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',

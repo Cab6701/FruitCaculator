@@ -17,9 +17,10 @@ import {
   getFruitPresets,
   saveFruitPresets,
 } from "../storage/fruitPresetStorage";
+import { generateId } from "../utils/id";
 
 const createEmptyPreset = (): FruitPreset => ({
-  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  id: generateId(),
   name: "",
   pricePerKg: 0,
 });
@@ -65,7 +66,7 @@ export const SettingsScreen: React.FC = () => {
           if (p.id !== id) return p;
           if (field === "pricePerKg") {
             const numeric = parseFloat(value) || 0;
-            return { ...p, pricePerKg: numeric * 1000 };
+            return { ...p, pricePerKg: Math.max(0, numeric * 1000) };
           }
           return { ...p, [field]: value };
         }),
@@ -135,6 +136,7 @@ export const SettingsScreen: React.FC = () => {
     setSaving(true);
     try {
       await saveFruitPresets(cleaned);
+      setPresets(cleaned.length ? cleaned : [createEmptyPreset()]);
       Alert.alert("Đã lưu", "Đã lưu danh sách quả mặc định.");
     } catch (error) {
       Alert.alert("Lỗi", "Không thể lưu danh sách. Vui lòng thử lại.");

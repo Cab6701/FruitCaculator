@@ -24,7 +24,10 @@ export const useInvoice = () => {
     setItems((prev) => [...prev, createEmptyItem()]);
   }, []);
 
-  const addItemFromPreset = useCallback((preset: FruitPreset) => {
+  const addItemFromPreset = useCallback((preset: FruitPreset): boolean => {
+    if (items.some((item) => item.presetId === preset.id)) {
+      return false;
+    }
     setItems((prev) => [
       ...prev,
       createEmptyItem({
@@ -33,7 +36,8 @@ export const useInvoice = () => {
         presetId: preset.id,
       }),
     ]);
-  }, []);
+    return true;
+  }, [items]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => {
@@ -44,7 +48,10 @@ export const useInvoice = () => {
     });
   }, []);
 
-  const applyPresetToItem = useCallback((id: string, preset: FruitPreset) => {
+  const applyPresetToItem = useCallback((id: string, preset: FruitPreset): boolean => {
+    if (items.some((item) => item.id !== id && item.presetId === preset.id)) {
+      return false;
+    }
     setItems((prev) =>
       prev.map((item) =>
         item.id === id
@@ -57,7 +64,8 @@ export const useInvoice = () => {
           : item,
       ),
     );
-  }, []);
+    return true;
+  }, [items]);
 
   const updateItemField = useCallback(
     (id: string, field: keyof InvoiceItem, value: string | number) => {

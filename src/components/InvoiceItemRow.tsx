@@ -31,13 +31,11 @@ export const InvoiceItemRow: React.FC<Props> = ({
   const lineTotal = item.pricePerKg * item.weightKg;
 
   const [weightText, setWeightText] = useState(
-    item.weightKg || item.weightKg === 0 ? String(item.weightKg) : ""
+    item.weightKg > 0 ? String(item.weightKg) : ""
   );
 
   useEffect(() => {
-    setWeightText(
-      item.weightKg || item.weightKg === 0 ? String(item.weightKg) : ""
-    );
+    setWeightText(item.weightKg > 0 ? String(item.weightKg) : "");
   }, [item.weightKg]);
 
   return (

@@ -1,13 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Modal, Alert } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useInvoice } from '../hooks/useInvoice';
-import { InvoiceItemRow } from '../components/InvoiceItemRow';
-import { formatCurrencyVND } from '../utils/format';
-import { FruitPreset } from '../types/invoice';
-import { getFruitPresets } from '../storage/fruitPresetStorage';
-import type { InvoiceItem } from '../types/invoice';
+import React, { useCallback, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { Swipeable } from "react-native-gesture-handler";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useInvoice } from "../hooks/useInvoice";
+import { InvoiceItemRow } from "../components/InvoiceItemRow";
+import { formatCurrencyVND } from "../utils/format";
+import { FruitPreset } from "../types/invoice";
+import { getFruitPresets } from "../storage/fruitPresetStorage";
+import type { InvoiceItem } from "../types/invoice";
 
 export const HomeScreen: React.FC = () => {
   const {
@@ -28,13 +40,19 @@ export const HomeScreen: React.FC = () => {
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null);
   const listRef = useRef<FlatList<InvoiceItem> | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      const data = await getFruitPresets();
-      setPresets(data);
-    };
-    load();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const load = async () => {
+        const data = await getFruitPresets();
+        if (!cancelled) setPresets(data);
+      };
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const openFruitPicker = (id: string) => {
     if (!presets.length) return;
@@ -47,19 +65,63 @@ export const HomeScreen: React.FC = () => {
     setPickerTargetId(null);
   };
 
+  const handleRemoveItem = (id: string) => {
+    Alert.alert(
+      "Xoá mặt hàng",
+      "Bạn có chắc chắn muốn xoá mặt hàng này không?",
+      [
+        { text: "Huỷ", style: "cancel" },
+        { text: "Xoá", style: "destructive", onPress: () => removeItem(id) },
+      ],
+    );
+  };
+
+  const handleResetInvoice = () => {
+    Alert.alert(
+      "Làm mới hoá đơn",
+      "Bạn có chắc chắn muốn làm mới? Toàn bộ mặt hàng hiện tại sẽ bị xoá.",
+      [
+        { text: "Huỷ", style: "cancel" },
+        {
+          text: "Làm mới",
+          style: "destructive",
+          onPress: () => resetInvoice(),
+        },
+      ],
+    );
+  };
+
   const handleSelectPresetForItem = (preset: FruitPreset) => {
     if (!pickerTargetId) return;
-    applyPresetToItem(pickerTargetId, preset);
+    const applied = applyPresetToItem(pickerTargetId, preset);
+    if (!applied) {
+      const index = items.findIndex((item) => item.presetId === preset.id);
+      if (index !== -1 && listRef.current) {
+        setTimeout(() => {
+          try {
+            listRef.current?.scrollToIndex({
+              index,
+              animated: true,
+              viewPosition: 0.5,
+            });
+          } catch {
+            listRef.current?.scrollToEnd({ animated: true });
+          }
+        }, 0);
+      }
+    }
     closePicker();
   };
 
   const handleSaveWithValidation = () => {
-    const invalidIndex = items.findIndex((item) => !item.name || item.pricePerKg <= 0);
+    const invalidIndex = items.findIndex(
+      (item) => !item.name || item.pricePerKg <= 0,
+    );
 
     if (invalidIndex !== -1) {
       Alert.alert(
-        'Thiếu thông tin',
-        'Vui lòng chọn loại quả và nhập giá/kg cho tất cả mặt hàng trước khi lưu hoá đơn.',
+        "Thiếu thông tin",
+        "Vui lòng chọn loại quả và nhập giá/kg cho tất cả mặt hàng trước khi lưu hoá đơn.",
       );
 
       if (listRef.current) {
@@ -76,29 +138,40 @@ export const HomeScreen: React.FC = () => {
       return;
     }
 
-    saveCurrentInvoice();
+    Alert.alert("Lưu hoá đơn", "Bạn có chắc chắn muốn lưu hoá đơn này không?", [
+      { text: "Huỷ", style: "cancel" },
+      { text: "Lưu", onPress: () => saveCurrentInvoice() },
+    ]);
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.title}>Hoá đơn hoa quả</Text>
 
-        <View style={styles.content}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.content}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
           <FlatList
             ref={listRef}
             data={items}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             renderItem={({ item }) => (
               <Swipeable
                 renderRightActions={() => (
-                  <TouchableOpacity
-                    style={styles.swipeDelete}
-                    onPress={() => removeItem(item.id)}
-                  >
-                    <Text style={styles.swipeDeleteText}>Xoá</Text>
-                  </TouchableOpacity>
+                  <View style={styles.swipeDeleteWrap}>
+                    <TouchableOpacity
+                      style={styles.swipeDelete}
+                      onPress={() => handleRemoveItem(item.id)}
+                    >
+                      <Text style={styles.swipeDeleteText}>Xoá</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               >
                 <InvoiceItemRow
@@ -106,12 +179,13 @@ export const HomeScreen: React.FC = () => {
                     item,
                     hasPresets: presets.length > 0,
                     onPressChooseFruit: openFruitPicker,
-                    onChangeName: (id: string, value: string) => updateItemField(id, 'name', value),
+                    onChangeName: (id: string, value: string) =>
+                      updateItemField(id, "name", value),
                     onChangePricePerKg: (id: string, value: string) =>
-                      updateItemField(id, 'pricePerKg', value),
+                      updateItemField(id, "pricePerKg", value),
                     onChangeWeightKg: (id: string, value: string) =>
-                      updateItemField(id, 'weightKg', value),
-                    onRemove: removeItem,
+                      updateItemField(id, "weightKg", value),
+                    onRemove: handleRemoveItem,
                   } as any)}
                 />
               </Swipeable>
@@ -123,15 +197,23 @@ export const HomeScreen: React.FC = () => {
             onPress={() => {
               addItem();
               if (listRef.current) {
-                setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 0);
+                setTimeout(
+                  () => listRef.current?.scrollToEnd({ animated: true }),
+                  0,
+                );
               }
             }}
           >
             <Text style={styles.addRowText}>+ Thêm mặt hàng</Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
 
-        <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={closePicker}>
+        <Modal
+          visible={pickerVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={closePicker}
+        >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Chọn loại quả</Text>
@@ -149,7 +231,10 @@ export const HomeScreen: React.FC = () => {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              <TouchableOpacity style={styles.modalCloseButton} onPress={closePicker}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={closePicker}
+              >
                 <Text style={styles.modalCloseText}>Đóng</Text>
               </TouchableOpacity>
             </View>
@@ -159,11 +244,16 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.footer}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Tổng tiền:</Text>
-            <Text style={styles.totalValue}>{formatCurrencyVND(totalAmount)}</Text>
+            <Text style={styles.totalValue}>
+              {formatCurrencyVND(totalAmount)}
+            </Text>
           </View>
 
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={resetInvoice}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleResetInvoice}
+            >
               <Text style={styles.secondaryButtonText}>Làm mới</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -172,7 +262,7 @@ export const HomeScreen: React.FC = () => {
               disabled={isSaving}
             >
               <Text style={styles.primaryButtonText}>
-                {isSaving ? 'Đang lưu...' : 'Lưu hoá đơn'}
+                {isSaving ? "Đang lưu..." : "Lưu hoá đơn"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -188,14 +278,14 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   content: {
     flex: 1,
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
@@ -206,7 +296,7 @@ const styles = StyleSheet.create({
   },
   presetsLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 6,
   },
   presetsRow: {
@@ -216,77 +306,83 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: '#e6f4ff',
+    backgroundColor: "#e6f4ff",
     marginRight: 8,
   },
   presetName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   presetPrice: {
     fontSize: 11,
-    color: '#555',
+    color: "#555",
   },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
   },
+  swipeDeleteWrap: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 72,
+  },
   swipeDelete: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
-    marginVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#ff4d4f',
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: "#ff4d4f",
   },
   swipeDeleteText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 13,
   },
   addRowButton: {
     marginTop: 8,
     marginHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#e6f4ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#e6f4ff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOpacity: 0.03,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
   addRowText: {
-    color: '#1890ff',
-    fontWeight: '700',
+    color: "#1890ff",
+    fontWeight: "700",
     fontSize: 15,
   },
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-    backgroundColor: '#fff',
+    borderTopColor: "#e5e5e5",
+    backgroundColor: "#fff",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 24,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '60%',
+    maxHeight: "60%",
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   modalList: {
@@ -295,46 +391,46 @@ const styles = StyleSheet.create({
   modalItem: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   modalItemName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalItemPrice: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   modalCloseButton: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#1890ff',
+    backgroundColor: "#1890ff",
   },
   modalCloseText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   totalValue: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#fa541c',
+    fontWeight: "700",
+    color: "#fa541c",
   },
   actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   secondaryButton: {
     flex: 1,
@@ -342,24 +438,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#999',
-    alignItems: 'center',
+    borderColor: "#999",
+    alignItems: "center",
   },
   secondaryButtonText: {
-    color: '#333',
-    fontWeight: '600',
+    color: "#333",
+    fontWeight: "600",
   },
   primaryButton: {
     flex: 1,
     marginLeft: 8,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#1890ff',
-    alignItems: 'center',
+    backgroundColor: "#1890ff",
+    alignItems: "center",
   },
   primaryButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
   },
 });
-
